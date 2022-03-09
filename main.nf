@@ -4,8 +4,8 @@ params.outdir = "${workDir}/results"      // Default output directory
 params.lines = 10                         // How many lines will emit the producer
 
 // Producers channel
-(producers, consumers) = Channel.from( 's01', 's02' ).into(2)
-consumers = consumers.combine( Channel.from( '1_of_1') )
+(producers, consumers) = Channel.from( 's01' ).into(2)
+consumers = consumers.combine( Channel.from( '1_of_2', '2_of_2') )
 
 process producer {
   tag "stream $stream_id"
