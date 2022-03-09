@@ -1,10 +1,17 @@
 
 // Default parameters
 params.outdir = "${workDir}/results"      // Default output directory
-params.lines = 10                         // How many lines will the producer produce
+params.lines = 10                         // How many lines will emit the producer
 
+// Producers channel
+(producers, consumers) = Channel.from( 's01', 's02' ).into(2)
+consumers = consumers.combine( Channel.from( '1_of_1') )
 
 process producer {
+  tag "stream $stream_id"
+
+  input:
+    val stream_id from producers
 
   script:
     """
@@ -16,13 +23,13 @@ process producer {
     SPID=\$!
 
     # Find stream http address
-    echo "\$(hostname -i)" > .nf-stream
+    echo "\$(hostname -i)" > .nf-stream-${stream_id}
 
     # Copy stream info to a shared filesystem
     if [ -f "/home/ec2-user/miniconda/bin/aws" ]; then
-      /home/ec2-user/miniconda/bin/aws s3 cp .nf-stream ${workDir}/.nf-stream
+      /home/ec2-user/miniconda/bin/aws s3 cp .nf-stream s3://${workDir}/.nf-stream-${stream_id}
     else
-      cp .nf-stream /tmp/.nf-stream
+      cp .nf-stream-${stream_id} /tmp/.nf-stream-${stream_id}
     fi
 
     # Wait stream setup
@@ -31,7 +38,7 @@ process producer {
     ## SCRIPT 
 
     # Produce some output
-    for i in {1..${params.lines}}; do echo "producer line \$i"; sleep 1; done > ./stream.out
+    for i in {1..${params.lines}}; do echo "stream ${stream_id} line \$i"; sleep 1; done > ./stream.out
     
     ## POST-SCRIPT 
 
@@ -39,17 +46,21 @@ process producer {
     wait \$SPID
 
     # Remove stream info
-    rm /tmp/.nf-stream
+    rm /tmp/.nf-stream-${stream_id}
 
     """
 }
 
 
 process consumer {
+   tag "stream $stream_id - consumer $consumer_id"
    publishDir "${params.outdir}", mode: 'copy'
 
+   input:
+     tuple val(stream_id), val(consumer_id) from consumers
+
    output:
-     path('output.txt')
+     path('*output.txt')
 
    script:
      """
@@ -61,11 +72,11 @@ process consumer {
 
      # Wait and fetch producer info
      if [ -f "/home/ec2-user/miniconda/bin/aws" ]; then
-       until /home/ec2-user/miniconda/bin/aws s3 cp ${workDir}/.nf-stream .nf-stream 2>/dev/null; do sleep 1; done
+       until /home/ec2-user/miniconda/bin/aws s3 cp s3://${workDir}/.nf-stream-${stream_id} .nf-stream-${stream_id} 2>/dev/null; do sleep 1; done
      else
-       until cp /tmp/.nf-stream .nf-stream 2>/dev/null; do sleep 1; done
+       until cp /tmp/.nf-stream-${stream_id} .nf-stream-${stream_id} 2>/dev/null; do sleep 1; done
      fi
-     PRODUCER=\$(cat .nf-stream)
+     PRODUCER=\$(cat .nf-stream-${stream_id})
 
      # Wait producer start
      until nc -z \$PRODUCER 9000; do sleep 1; done 
@@ -76,7 +87,7 @@ process consumer {
      ## SCRIPT 
 
      # Consume stream
-     cat ./stream.in | awk '{printf(\$0" consumed!\\n")}' > output.txt     
+     cat ./stream.in | awk '{printf(\$0" consumed by ${consumer_id}\\n")}' > stream_${stream_id}_${consumer_id}_output.txt     
 
      ## POST-SCRIPT
      
