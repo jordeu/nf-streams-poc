@@ -48,6 +48,9 @@ process producer {
     # Remove stream info
     [[ -f "/tmp/.nf-stream-${stream_id}" ]] && rm /tmp/.nf-stream-${stream_id}
 
+    # Done
+    exit 0
+
     """
 }
 
