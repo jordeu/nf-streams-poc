@@ -27,7 +27,7 @@ process producer {
 
     # Copy stream info to a shared filesystem
     if [ -f "/home/ec2-user/miniconda/bin/aws" ]; then
-      /home/ec2-user/miniconda/bin/aws s3 cp .nf-stream s3://${workDir}/.nf-stream-${stream_id}
+      /home/ec2-user/miniconda/bin/aws s3 cp .nf-stream-${stream_id} s3://${workDir}/.nf-stream-${stream_id}
     else
       cp .nf-stream-${stream_id} /tmp/.nf-stream-${stream_id}
     fi
@@ -82,7 +82,7 @@ process consumer {
      until nc -z \$PRODUCER 9000; do sleep 1; done 
  
      # Read remote stream
-     curl -N -o stream.in http://\$PRODUCER:9000/stream &
+     curl -N -o stream.in -H "NF_STREAM_CONSUMER: ${consumer_id}" http://\$PRODUCER:9000/stream &
 
      ## SCRIPT 
 
