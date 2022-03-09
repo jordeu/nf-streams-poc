@@ -46,7 +46,7 @@ process producer {
     wait \$SPID
 
     # Remove stream info
-    rm /tmp/.nf-stream-${stream_id}
+    [[ -f "/tmp/.nf-stream-${stream_id}" ]] && rm /tmp/.nf-stream-${stream_id}
 
     """
 }
