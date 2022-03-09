@@ -1,4 +1,7 @@
 
+// Default parameters
+params.outdir = "${workDir}/results"      // Default output directory
+params.lines = 10                         // How many lines will the producer produce
 
 
 process producer {
