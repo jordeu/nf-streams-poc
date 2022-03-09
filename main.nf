@@ -27,7 +27,7 @@ process producer {
 
     # Copy stream info to a shared filesystem
     if [ -f "/home/ec2-user/miniconda/bin/aws" ]; then
-      /home/ec2-user/miniconda/bin/aws s3 cp .nf-stream-${stream_id} s3://${workDir}/.nf-stream-${stream_id}
+      /home/ec2-user/miniconda/bin/aws s3 cp .nf-stream-${stream_id} s3:/${workDir}/.nf-stream-${stream_id}
     else
       cp .nf-stream-${stream_id} /tmp/.nf-stream-${stream_id}
     fi
@@ -72,7 +72,7 @@ process consumer {
 
      # Wait and fetch producer info
      if [ -f "/home/ec2-user/miniconda/bin/aws" ]; then
-       until /home/ec2-user/miniconda/bin/aws s3 cp s3://${workDir}/.nf-stream-${stream_id} .nf-stream-${stream_id} 2>/dev/null; do sleep 1; done
+       until /home/ec2-user/miniconda/bin/aws s3 cp s3:/${workDir}/.nf-stream-${stream_id} .nf-stream-${stream_id} 2>/dev/null; do sleep 1; done
      else
        until cp /tmp/.nf-stream-${stream_id} .nf-stream-${stream_id} 2>/dev/null; do sleep 1; done
      fi
