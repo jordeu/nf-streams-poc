@@ -4,8 +4,8 @@ params.outdir = "${workDir.toUri()}/results"  // Default output directory
 params.lines = 10                             // How many lines will emit the producer
 
 // Producers channel
-(producers, consumers) = Channel.from( 's01' ).into(2)
-consumers = consumers.combine( Channel.from( '1_of_2', '2_of_2') )
+(producers, consumers) = Channel.from( 's01', 's02' ).into(2)
+consumers = consumers.combine( Channel.from( '1_of_3', '2_of_3', '3_of_3') )
 
 process producer {
   tag "stream $stream_id"
@@ -19,11 +19,11 @@ process producer {
     set -x
 
     # Create output stream
-    nf-stream &
+    nf-stream -stream=${stream_id} > .nf-stream-${stream_id}.log 2>&1 &
     SPID=\$!
 
-    # Find stream http address
-    echo "\$(hostname -i)" > .nf-stream-${stream_id}
+    # Wait stream info file
+    until [ -f ".nf-stream-${stream_id}" ]; do sleep 1; done
 
     # Copy stream info to a shared filesystem
     if [ -f "/home/ec2-user/miniconda/bin/aws" ]; then
@@ -31,9 +31,6 @@ process producer {
     else
       cp .nf-stream-${stream_id} /tmp/.nf-stream-${stream_id}
     fi
-
-    # Wait stream setup
-    sleep 1
 
     ## SCRIPT 
 
@@ -73,19 +70,19 @@ process consumer {
      # Create input stream
      mkfifo stream.in
 
-     # Wait and fetch producer info
+     # Wait and fetch stream info
      if [ -f "/home/ec2-user/miniconda/bin/aws" ]; then
        until /home/ec2-user/miniconda/bin/aws s3 cp ${workDir.toUri()}/.nf-stream-${stream_id} .nf-stream-${stream_id} 2>/dev/null; do sleep 1; done
      else
        until cp /tmp/.nf-stream-${stream_id} .nf-stream-${stream_id} 2>/dev/null; do sleep 1; done
      fi
-     PRODUCER=\$(cat .nf-stream-${stream_id})
+     STREAM_INFO=\$(cat .nf-stream-${stream_id})
 
      # Wait producer start
-     until nc -z \$PRODUCER 9000; do sleep 1; done 
+     until nc -z \${STREAM_INFO/:/ }; do sleep 1; done 
  
      # Read remote stream
-     curl -N -o stream.in -H "NF_STREAM_CONSUMER: ${consumer_id}" http://\$PRODUCER:9000/stream &
+     curl -N -o stream.in -H "NF_STREAM_CONSUMER: ${consumer_id}" http://\${STREAM_INFO}/stream &
 
      ## SCRIPT 
 
